@@ -1,11 +1,21 @@
-import { useMemo } from "react";
-import { AlertTriangle, ArrowRight, Banknote, CalendarCheck2, CalendarDays, Car, Clock, CreditCard, FileText, MessageCircle, Palmtree, Plus, Route, Ticket, Truck, UserCheck, UserCog, UserPlus, Users, Wallet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowRight, Banknote, CalendarCheck2, CalendarDays, Car, Clock, CreditCard, FileText, MessageCircle, Palmtree, Plus, Route, Sun, Ticket, Truck, UserCheck, UserCog, UserPlus, Users, Wallet } from "lucide-react";
 import { useStore, useTenant } from "../lib/store";
-import { BOOKING_STATUS, DRIVER_STATUS, PAY_STATUS, VEHICLE_STATUS, cx, daysFromNow, fmtClock, fmtDateShort, money, todayISO } from "../lib/utils";
+import { BOOKING_STATUS, DRIVER_STATUS, PAY_STATUS, VEHICLE_STATUS, cx, daysFromNow, fmtClock, fmtDateShort, money, toMin, todayISO } from "../lib/utils";
 import { guestsOf, payStatusOf, vehicleIssues, expiryWarn } from "../lib/data";
 import { Bar, EmptyState, StatCard, StatusPill } from "../components/ui";
 import { ChartCard, DayBars, Donut, FunnelRow, RevArea } from "../components/charts";
 import type { PageId } from "../lib/types";
+
+const TickerStat = ({ label, value, dot }: { label: string; value: string; dot?: boolean }) => (
+  <div className="flex items-center gap-2">
+    {dot && <span className="w-2 h-2 rounded-full bg-gold-500 pulse-dot shrink-0" />}
+    <div>
+      <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-ink-400">{label}</p>
+      <p className="text-[13px] font-extrabold text-ink-800 leading-tight">{value}</p>
+    </div>
+  </div>
+);
 
 export default function Dashboard() {
   const { db, user, setRoute } = useStore();
@@ -19,6 +29,17 @@ export default function Dashboard() {
   const today = todayISO();
   const settings = db.settings.find((s) => s.tenantId === user?.tenantId);
   const cur = settings?.currency ?? "AED";
+
+  // Live ticker — refreshes every 30s so the clock and "next pickup" stay honest
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setClock(new Date()), 30000); return () => clearInterval(t); }, []);
+  const livePickups = useMemo(() => bookings.filter((b) => b.date === today && !["cancelled", "no_show", "completed", "inquiry"].includes(b.status)), [bookings, today]);
+  const nextPickup = useMemo(() => {
+    const nowMin = clock.getHours() * 60 + clock.getMinutes();
+    return livePickups.filter((b) => toMin(b.pickupTime) >= nowMin - 90).sort((a, b) => a.pickupTime.localeCompare(b.pickupTime))[0] ?? null;
+  }, [livePickups, clock]);
+  const hour = clock.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   const stats = useMemo(() => {
     const active = bookings.filter((b) => !["cancelled", "no_show"].includes(b.status));
@@ -122,6 +143,24 @@ export default function Dashboard() {
         <StatCard label="Drivers on Duty" value={stats.drvDuty} sub="assigned or on trip" icon={<Users size={15} />} tone="oasis" onClick={() => go("drivers")} />
         <StatCard label="New Leads" value={stats.newLeads} sub="waiting in CRM" icon={<MessageCircle size={15} />} tone="night" onClick={() => go("crm")} />
         <StatCard label="Follow-ups Due" value={stats.followUps} sub="don't let them cool" icon={<Plus size={15} />} tone="clay" onClick={() => go("crm")} alert={stats.followUps > 0} />
+      </div>
+
+      {/* Live operations ticker */}
+      <div className="card px-4 py-3 flex items-center gap-x-6 gap-y-2.5 flex-wrap anim-rise relative overflow-hidden">
+        <span className="absolute inset-y-0 left-0 w-1 bg-gold-500" />
+        <div className="flex items-center gap-2.5">
+          <span className="w-9 h-9 rounded-xl bg-gold-500/15 text-gold-600 flex items-center justify-center ticker-live"><Sun size={17} /></span>
+          <div>
+            <p className="font-display font-bold text-[15px] text-ink-900 leading-tight">{greeting}, {user!.name.split(" ")[0]}</p>
+            <p className="text-[11px] font-bold text-ink-400">{clock.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · {clock.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p>
+          </div>
+        </div>
+        <span className="hidden sm:block h-8 w-px bg-sand-200" />
+        <TickerStat label="Next pickup" value={nextPickup ? `${fmtClock(nextPickup.pickupTime)} · ${customers.find((c) => c.id === nextPickup.customerId)?.name?.split(" ")[0] ?? "Guest"} @ ${nextPickup.pickupLocation.split("—")[0]}` : "All pickups done ✓"} />
+        <span className="hidden sm:block h-8 w-px bg-sand-200" />
+        <TickerStat label="Pickups left today" value={`${livePickups.length}`} />
+        <TickerStat label="Fleet out" value={`${stats.vehSafari} on safari`} dot={stats.vehSafari > 0} />
+        <TickerStat label="Drivers on duty" value={`${stats.drvDuty}`} />
       </div>
 
       {/* Quick actions */}

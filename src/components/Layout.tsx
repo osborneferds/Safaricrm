@@ -128,6 +128,19 @@ const Row = ({ title, sub, onClick }: { title: string; sub: string; onClick: () 
   </button>
 );
 
+/** Layered desert backdrop — dune ridgelines + low sun, fixed behind all content */
+const DuneScene = () => (
+  <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+    <div className="absolute -top-28 -right-28 w-[480px] h-[480px] rounded-full" style={{ background: "radial-gradient(circle, rgba(220,174,79,0.16), transparent 62%)" }} />
+    <svg className="absolute bottom-0 left-0 w-full h-[30vh] text-sand-400/20" viewBox="0 0 1440 320" preserveAspectRatio="none" fill="currentColor">
+      <path d="M0 190 Q 300 110 620 175 T 1440 150 V320 H0 Z" />
+    </svg>
+    <svg className="absolute bottom-0 left-0 w-full h-[19vh] text-sand-500/15" viewBox="0 0 1440 320" preserveAspectRatio="none" fill="currentColor">
+      <path d="M0 225 Q 420 135 820 205 T 1440 185 V320 H0 Z" />
+    </svg>
+  </div>
+);
+
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, tenant, db, route, setRoute, logout, mutate, resetDemo } = useStore();
   const [mobileNav, setMobileNav] = useState(false);
@@ -209,6 +222,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex dune-bg">
+      <DuneScene />
       <aside className="hidden lg:block w-[228px] shrink-0 fixed inset-y-0 left-0 z-30">{sidebar}</aside>
 
       {mobileNav && (
@@ -218,7 +232,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <div className="grow lg:pl-[228px] flex flex-col min-w-0">
+      <div className="grow lg:pl-[228px] flex flex-col min-w-0 relative z-[1]">
         <header className="sticky top-0 z-40 bg-[#f1ead9]/85 backdrop-blur-md border-b border-sand-300/60">
           <div className="flex items-center gap-2 px-4 sm:px-6 h-[58px]">
             <button className="lg:hidden btn btn-ghost btn-sm -ml-1" onClick={() => setMobileNav(true)} aria-label="Menu"><Menu size={19} /></button>
@@ -320,7 +334,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="grow p-4 sm:p-6 max-w-[1500px] w-full mx-auto" onClick={() => { if (bellOpen) setBellOpen(false); if (quickOpen) setQuickOpen(false); if (userOpen) setUserOpen(false); }}>{children}</main>
+        <main key={route.page} className="grow p-4 sm:p-6 max-w-[1500px] w-full mx-auto anim-rise" onClick={() => { if (bellOpen) setBellOpen(false); if (quickOpen) setQuickOpen(false); if (userOpen) setUserOpen(false); }}>{children}</main>
 
         <footer className="px-6 py-4 text-[11px] font-semibold text-ink-400 flex flex-wrap gap-x-4 gap-y-1 justify-between border-t border-sand-300/50">
           <span>DuneSuite · Safari operations platform for the UAE</span>

@@ -125,6 +125,14 @@ body {
     radial-gradient(ellipse 70% 45% at -10% 110%, rgba(200, 145, 47, 0.1), transparent 60%);
 }
 
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+}
+
+@keyframes ticker-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(200, 145, 47, 0.25); } 50% { box-shadow: 0 0 0 5px rgba(200, 145, 47, 0); } }
+.ticker-live { animation: ticker-glow 2.4s ease-out infinite; }
+
 @media print {
   body { background: white !important; }
   .no-print { display: none !important; }
