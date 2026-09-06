@@ -9,7 +9,11 @@ const PICKUPS = ["Atlantis The Palm", "Dubai Marina — Address Hotel", "Downtow
 
 export default function PublicBooking({ onBack }: { onBack: () => void }) {
   const { db, mutate, toast } = useStore();
-  const tenantId = "t1"; // widget/bookings are tenant-locked — swap via ?tenant= in production embed
+  // Widget-compatible: honour ?tenant= (validated against real tenants) and ?embed=1 for iframe use
+  const qp = new URLSearchParams(window.location.search);
+  const qTenant = qp.get("tenant");
+  const tenantId = qTenant && db.tenants.some((t) => t.id === qTenant) ? qTenant : "t1";
+  const embed = qp.get("embed") === "1";
   const settings = db.settings.find((s) => s.tenantId === tenantId)!;
   const packages = db.packages.filter((p) => p.tenantId === tenantId && p.active);
 
@@ -62,7 +66,7 @@ export default function PublicBooking({ onBack }: { onBack: () => void }) {
 
   if (done) {
     return (
-      <Shell settings={settings.name} onBack={onBack}>
+      <Shell settings={settings.name} onBack={onBack} embed={embed}>
         <div className="max-w-lg mx-auto anim-pop">
           <div className="card p-8 text-center shadow-float">
             <span className="w-16 h-16 rounded-full bg-moss-100 text-moss-600 flex items-center justify-center mx-auto mb-4"><Check size={30} /></span>
@@ -88,7 +92,7 @@ export default function PublicBooking({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <Shell settings={settings.name} onBack={onBack}>
+    <Shell settings={settings.name} onBack={onBack} embed={embed}>
       <div className="max-w-3xl mx-auto">
         {/* Progress */}
         <div className="flex items-center gap-1.5 mb-6">
@@ -197,7 +201,7 @@ export default function PublicBooking({ onBack }: { onBack: () => void }) {
         )}
 
         <div className="flex justify-between mt-6">
-          <button className="btn btn-outline" onClick={() => (step === 0 ? onBack() : setStep((s) => s - 1))}><ArrowLeft size={15} />{step === 0 ? "Back" : "Previous"}</button>
+          {(step > 0 || !embed) && <button className="btn btn-outline" onClick={() => (step === 0 ? onBack() : setStep((s) => s - 1))}><ArrowLeft size={15} />{step === 0 ? "Back" : "Previous"}</button>}
           {step < 4 && <button className="btn btn-dark" onClick={next}>Continue<ArrowRight size={15} /></button>}
         </div>
       </div>
@@ -213,7 +217,7 @@ const StepBtn = ({ onDec, onInc, val }: { onDec: () => void; onInc: () => void; 
   </div>
 );
 
-const Shell = ({ children, settings, onBack }: { children: React.ReactNode; settings: string; onBack: () => void }) => (
+const Shell = ({ children, settings, onBack, embed }: { children: React.ReactNode; settings: string; onBack: () => void; embed?: boolean }) => (
   <div className="min-h-screen dune-bg">
     <header className="sticky top-0 z-40 bg-[#f1ead9]/85 backdrop-blur-md border-b border-sand-300/60 no-print">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
@@ -224,7 +228,7 @@ const Shell = ({ children, settings, onBack }: { children: React.ReactNode; sett
         </div>
         <div className="grow" />
         <span className="chip bg-sand-200 text-ink-600 hidden sm:inline-flex"><CalendarDays size={11} />Instant confirmation</span>
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>Staff sign-in</button>
+        {!embed && <button className="btn btn-ghost btn-sm" onClick={onBack}>Staff sign-in</button>}
       </div>
     </header>
     <main className="p-4 sm:p-8">{children}</main>

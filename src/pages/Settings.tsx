@@ -39,7 +39,7 @@ export function SettingsPage() {
     toast("Reminder queued to WhatsApp ✓", "info");
   };
 
-  const widgetCode = `<iframe src="${window.location.origin}/#/book?tenant=${settings.tenantId}" width="100%" height="760" style="border:0;border-radius:16px" title="Book Your Desert Safari"></iframe>`;
+  const widgetCode = `<iframe src="${window.location.origin}/?tenant=${settings.tenantId}&embed=1#/public" width="100%" height="760" style="border:0;border-radius:16px" title="Book Your Desert Safari"></iframe>`;
 
   return (
     <div className="space-y-4">

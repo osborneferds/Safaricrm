@@ -111,6 +111,7 @@ export default function DriverApp() {
                     <div className="px-4 pb-4 space-y-3 anim-fade">
                       {b!.specialReq && <p className="text-[12px] font-bold text-gold-700 bg-gold-200/30 rounded-lg p-2.5">📝 {b!.specialReq}</p>}
                       {b!.pickupAddress && <p className="text-[12px] font-semibold text-ink-500">📍 {b!.pickupAddress}</p>}
+                      <TripLog trip={t} onSave={(notes) => { mutate((d) => { const x = d.trips.find((y) => y.id === t.id); if (x) x.notes = notes; }); toast("Trip log saved ✓"); }} />
                       <div className="grid grid-cols-3 gap-2">
                         <a className="btn btn-outline btn-sm" href={`tel:${phone}`}><Phone size={13} />Call</a>
                         <a className="btn btn-success btn-sm" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}`}><MessageCircle size={13} />WhatsApp</a>
@@ -156,6 +157,42 @@ export default function DriverApp() {
         <p className="text-center text-[11px] font-bold text-ink-400 pt-2">{fmtDate(today)} · DuneSuite Driver Console · stay safe in the dunes 🌇</p>
       </div>
       <span className="hidden"><X size={1} /></span>
+    </div>
+  );
+}
+
+function TripLog({ trip, onSave }: { trip: Trip; onSave: (notes: string) => void }) {
+  const clean = (trip.notes || "").replace(/\n?Odometer: \d+ km\.?/, "").replace(/\n?Photos: .+/, "");
+  const kmMatch = /Odometer: (\d+) km/.exec(trip.notes || "");
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(clean);
+  const [km, setKm] = useState(kmMatch ? kmMatch[1] : "");
+  const [photos, setPhotos] = useState<string[]>(() => { const m = /Photos: (.+)/.exec(trip.notes || ""); return m ? m[1].split(", ") : []; });
+  return (
+    <div className="rounded-xl border border-sand-200 bg-sand-50 overflow-hidden">
+      <button className="w-full flex items-center justify-between px-3 py-2 cursor-pointer" onClick={() => setOpen(!open)}>
+        <span className="text-[12px] font-extrabold uppercase tracking-wide text-ink-500">Trip log · notes, mileage, photos</span>
+        <ChevronDown size={14} className={cx("text-ink-400 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-2 anim-fade">
+          <textarea className="input min-h-[64px] text-[13px]" placeholder="Route conditions, guest remarks, incidents…" value={text} onChange={(e) => setText(e.target.value)} />
+          <div className="flex gap-2">
+            <input type="number" min={0} className="input" placeholder="Odometer (km)" value={km} onChange={(e) => setKm(e.target.value)} />
+            <label className="btn btn-outline shrink-0 cursor-pointer">
+              <MessageCircle size={0} className="hidden" />📷 Add photos
+              <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setPhotos((p) => [...p, ...Array.from(e.target.files ?? []).map((f) => f.name)])} />
+            </label>
+          </div>
+          {photos.length > 0 && <div className="flex flex-wrap gap-1.5">{photos.map((p, i) => <span key={i} className="chip bg-white border border-sand-200 text-ink-600">🖼 {p}</span>)}</div>}
+          <button className="btn btn-dark btn-sm w-full" onClick={() => {
+            let out = text.trim();
+            if (km) out += `\nOdometer: ${km} km`;
+            if (photos.length) out += `\nPhotos: ${photos.join(", ")}`;
+            onSave(out);
+          }}>Save trip log</button>
+        </div>
+      )}
     </div>
   );
 }

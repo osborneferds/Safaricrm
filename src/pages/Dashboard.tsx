@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AlertTriangle, ArrowRight, Banknote, CalendarCheck2, CalendarDays, Car, Clock, MessageCircle, Plus, Route, Ticket, UserCheck, Users, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, Banknote, CalendarCheck2, CalendarDays, Car, Clock, CreditCard, FileText, MessageCircle, Palmtree, Plus, Route, Ticket, Truck, UserCheck, UserCog, UserPlus, Users, Wallet } from "lucide-react";
 import { useStore, useTenant } from "../lib/store";
 import { BOOKING_STATUS, DRIVER_STATUS, PAY_STATUS, VEHICLE_STATUS, cx, daysFromNow, fmtClock, fmtDateShort, money, todayISO } from "../lib/utils";
 import { guestsOf, payStatusOf, vehicleIssues, expiryWarn } from "../lib/data";
@@ -123,6 +123,33 @@ export default function Dashboard() {
         <StatCard label="New Leads" value={stats.newLeads} sub="waiting in CRM" icon={<MessageCircle size={15} />} tone="night" onClick={() => go("crm")} />
         <StatCard label="Follow-ups Due" value={stats.followUps} sub="don't let them cool" icon={<Plus size={15} />} tone="clay" onClick={() => go("crm")} alert={stats.followUps > 0} />
       </div>
+
+      {/* Quick actions */}
+      {(() => {
+        const role = user!.role;
+        const newTo = (page: PageId) => setRoute({ page, params: { new: "1" } });
+        const actions = [
+          { label: "New Booking", icon: Ticket, show: true, run: () => newTo("bookings"), hot: true },
+          { label: "New Lead", icon: MessageCircle, show: role !== "driver", run: () => newTo("crm") },
+          { label: "Add Customer", icon: UserPlus, show: role !== "driver", run: () => newTo("customers") },
+          { label: "Create Quotation", icon: FileText, show: role === "admin" || role === "sales", run: () => setRoute({ page: "quotations", params: { new: "1" } }) },
+          { label: "Record Payment", icon: CreditCard, show: role === "admin" || role === "sales" || role === "ops", run: () => setRoute({ page: "payments", params: { new: "1" } }) },
+          { label: "Add Vehicle", icon: Truck, show: role === "admin" || role === "ops", run: () => newTo("fleet") },
+          { label: "Add Driver", icon: UserCog, show: role === "admin" || role === "ops", run: () => newTo("drivers") },
+          { label: "Add Package", icon: Palmtree, show: role === "admin", run: () => newTo("packages") },
+        ].filter((a) => a.show);
+        return (
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-print">
+            {actions.map((a) => { const I = a.icon; return (
+              <button key={a.label} onClick={a.run}
+                className={cx("btn shrink-0 border transition-all hover:-translate-y-0.5",
+                  a.hot ? "bg-ink-900 text-gold-300 border-ink-900 hover:bg-ink-800 shadow-lift" : "bg-white/70 border-sand-300 text-ink-700 hover:border-gold-400 hover:text-ink-950")}>
+                <Plus size={14} className={a.hot ? "text-gold-400" : "text-gold-600"} /><I size={14} />{a.label}
+              </button>
+            ); })}
+          </div>
+        );
+      })()}
 
       {/* Today's operations */}
       <div className="card anim-rise">

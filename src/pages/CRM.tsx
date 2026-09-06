@@ -3,7 +3,7 @@ import { CheckCheck, FileText, LayoutGrid, ListFilter, MessageCircle, Phone, Plu
 import { useStore, useTenant } from "../lib/store";
 import type { ID, Lead, LeadSource, LeadStatus, Message } from "../lib/types";
 import { LEAD_SOURCES, calcTotal } from "../lib/data";
-import { LEAD_STATUS, cx, daysFromNow, fmtDate, fmtDateShort, fmtTime, money, nowISO, timeAgo, todayISO, uid } from "../lib/utils";
+import { LEAD_STATUS, addDaysISO, cx, daysFromNow, fmtDate, fmtDateShort, fmtTime, money, nowISO, timeAgo, todayISO, uid } from "../lib/utils";
 import { Avatar, EmptyState, Field, Modal, SearchBox, StatusPill, Tabs } from "../components/ui";
 
 const PIPE: LeadStatus[] = ["new", "contacted", "quoted", "follow_up", "confirmed", "paid", "completed", "lost"];
@@ -115,7 +115,7 @@ export default function CRM() {
     if (!lead || !pkg) { toast("Pick a package first.", "error"); return; }
     const qcode = `QT-${new Date().getFullYear()}-${String(4200 + db.quotations.length)}`;
     mutate((d) => {
-      d.quotations.unshift({ id: uid(), tenantId: tid, code: qcode, partyName: lead.name, customerId: lead.customerId ?? null, leadId: lead.id, packageId: pkg.id, date: lead.preferredDate || todayISO(), adults: lead.adults, children: lead.children, pickupLocation: lead.pickupLocation, discount: 0, taxPct: settings?.taxPct ?? 5, total: calc!.total, status: "draft", validUntil: todayISO().slice(0, 8) + String(Number(todayISO().slice(8)) + 7).padStart(2, "0"), notes: "", createdAt: nowISO() });
+      d.quotations.unshift({ id: uid(), tenantId: tid, code: qcode, partyName: lead.name, customerId: lead.customerId ?? null, leadId: lead.id, packageId: pkg.id, date: lead.preferredDate || todayISO(), adults: lead.adults, children: lead.children, pickupLocation: lead.pickupLocation, discount: 0, taxPct: settings?.taxPct ?? 5, total: calc!.total, status: "draft", validUntil: addDaysISO(7), notes: "", createdAt: nowISO() });
       const l = d.leads.find((x) => x.id === lead.id); if (l && ["new", "contacted"].includes(l.status)) l.status = "quoted";
     });
     audit("quote.created", "Quotation", lead.id, `${qcode} for ${lead.name}`);

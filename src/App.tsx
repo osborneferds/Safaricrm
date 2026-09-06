@@ -21,6 +21,11 @@ import PublicBooking from "./pages/PublicBooking";
 function Root() {
   const { session, user, route, setRoute } = useStore();
 
+  // Deep links: /#/public (booking widget / customer page)
+  useEffect(() => {
+    if (window.location.hash.startsWith("#/public")) setRoute({ page: "public" });
+  }, [setRoute]);
+
   // Default landing per session/role
   useEffect(() => {
     if (!session) return;

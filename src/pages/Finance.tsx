@@ -3,7 +3,7 @@ import { Banknote, CreditCard, Download, FileText, MessageCircle, Pencil, Plus, 
 import { useStore, useTenant } from "../lib/store";
 import type { ID, PayMethod, Quotation, QuoteStatus } from "../lib/types";
 import { calcTotal, payStatusOf } from "../lib/data";
-import { METHOD_LABEL, PAY_STATUS, QUOTE_STATUS, cx, daysFromNow, downloadCSV, fmtDate, fmtDateTime, money, nowISO, todayISO, uid } from "../lib/utils";
+import { METHOD_LABEL, PAY_STATUS, QUOTE_STATUS, addDaysISO, cx, daysFromNow, downloadCSV, fmtDate, fmtDateTime, money, nowISO, todayISO, uid } from "../lib/utils";
 import { EmptyState, Field, Modal, Pager, SearchBox, StatusPill, Tabs } from "../components/ui";
 
 export default function Finance({ initialTab = "payments" }: { initialTab?: "payments" | "quotes" }) {
@@ -394,7 +394,7 @@ function QuoteForm({ qt, onClose, onSave }: { qt: Quotation | null; onClose: () 
     id: uid(), tenantId: tid, code: `QT-${new Date().getFullYear()}-${String(4200 + db.quotations.length)}`,
     partyName: "", customerId: null, leadId: null, packageId: packages[0]?.id ?? "", date: todayISO(),
     adults: 2, children: 0, pickupLocation: "", discount: 0, taxPct: settings.taxPct, total: 0,
-    status: "draft", validUntil: todayISO(), notes: "", createdAt: nowISO(),
+    status: "draft", validUntil: addDaysISO(7), notes: "", createdAt: nowISO(),
   });
   const pkg = packages.find((p) => p.id === f.packageId);
   const calc = calcTotal(pkg, f.adults, f.children, [], f.discount, f.taxPct);

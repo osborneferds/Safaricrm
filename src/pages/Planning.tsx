@@ -8,6 +8,15 @@ import { Drawer, EmptyState, Field, SearchBox, StatusPill, Tabs } from "../compo
 
 const TRIP_FLOW: TripStatus[] = ["scheduled", "driver_assigned", "on_the_way", "arrived", "guests_picked_up", "safari_started", "safari_completed", "dropped_off", "completed"];
 
+// Deterministic pin placement for the pickup route map
+const hashPos = (s: string, i: number) => {
+  let h = 7;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 9973;
+  const x = 110 + ((h * 13 + i * 97) % 560);
+  const y = 80 + ((h * 7 + i * 61) % 240);
+  return { x, y };
+};
+
 // ─── Calendar ───────────────────────────────────────────────────────────────
 export function CalendarPage() {
   const { db, user, setRoute, assignFleet, toast } = useStore();
@@ -235,23 +244,130 @@ export function Pickups() {
   const drivers = useTenant(db.drivers);
   const trips = useTenant(db.trips);
   const [date, setDate] = useState(todayISO());
+  const [view, setView] = useState<"list" | "map">("list");
+  const [mapSel, setMapSel] = useState<ID | null>(null);
 
   const items = useMemo(() => bookings
     .filter((b) => b.date === date && !["cancelled", "no_show", "completed", "inquiry"].includes(b.status))
     .sort((a, b) => a.pickupTime.localeCompare(b.pickupTime)), [bookings, date]);
 
+  const weekStrip = useMemo(() => Array.from({ length: 7 }).map((_, i) => {
+    const d = addDaysISO(i);
+    return { d, n: bookings.filter((b) => b.date === d && !["cancelled", "no_show", "completed", "inquiry"].includes(b.status)).length };
+  }), [bookings]);
+
+  const selB = mapSel ? items.find((b) => b.id === mapSel) : null;
+
   return (
     <div className="space-y-4">
+      {/* Week strip — calendar view */}
+      <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5">
+        {weekStrip.map(({ d, n }) => (
+          <button key={d} onClick={() => setDate(d)}
+            className={cx("card px-1 py-2 text-center transition-all cursor-pointer hover:-translate-y-0.5",
+              d === date ? "ring-2 ring-gold-500 bg-gold-200/30" : "hover:shadow-float", d === todayISO() && d !== date && "border-gold-300")}>
+            <p className="text-[10px] font-extrabold uppercase tracking-wide text-ink-400">{fmtWeekday(d)}</p>
+            <p className={cx("font-display font-black text-lg leading-tight", d === date ? "text-gold-700" : "text-ink-900")}>{Number(d.slice(8))}</p>
+            <p className={cx("text-[10px] font-extrabold", n > 0 ? "text-oasis-600" : "text-ink-300")}>{n > 0 ? `${n} pickup${n > 1 ? "s" : ""}` : "—"}</p>
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center gap-2.5 flex-wrap">
-        <CalendarDays size={18} className="text-gold-600" />
+        <Tabs tabs={[{ id: "list", label: "Run sheet" }, { id: "map", label: "Route map" }]} val={view} onChange={(v) => setView(v as "list" | "map")} />
         <input type="date" className="input w-auto font-bold" value={date} onChange={(e) => setDate(e.target.value)} />
         <button className="btn btn-dark btn-sm" onClick={() => setDate(todayISO())}>Today</button>
-        <span className="text-xs font-bold text-ink-500">{items.length} pickups · sorted by time</span>
+        <span className="text-xs font-bold text-ink-500 hidden sm:inline">{items.length} pickups · sorted by time</span>
         <div className="grow" />
         <a className="btn btn-outline btn-sm" target="_blank" rel="noreferrer" href="https://www.google.com/maps/search/desert+safari+pickup+dubai"><Navigation size={14} />Open area map</a>
       </div>
 
-      {items.length === 0 ? (
+      {view === "map" && (
+        <div className="card overflow-hidden anim-rise">
+          <div className="relative">
+            <svg viewBox="0 0 800 420" className="w-full h-auto block" role="img" aria-label="Pickup route map">
+              <defs>
+                <linearGradient id="mapsky" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f3ecdb" /><stop offset="100%" stopColor="#e9ddc2" />
+                </linearGradient>
+              </defs>
+              <rect width="800" height="420" fill="url(#mapsky)" />
+              <path d="M0 300 Q 150 250 300 285 T 620 275 T 800 295 V420 H0 Z" fill="#dbc9a2" />
+              <path d="M0 340 Q 200 300 400 330 T 800 325 V420 H0 Z" fill="#c9ae77" />
+              <path d="M0 385 Q 250 350 500 375 T 800 365 V420 H0 Z" fill="#b69355" />
+              <circle cx="712" cy="64" r="26" fill="#dcae4f" opacity="0.9" />
+              <circle cx="712" cy="64" r="38" fill="#dcae4f" opacity="0.2" />
+              {/* road from city depot to desert camp */}
+              <path d="M40 400 C 160 360 240 300 340 270 S 560 210 700 150" fill="none" stroke="#8a7a55" strokeWidth="7" strokeLinecap="round" opacity="0.55" />
+              <path d="M40 400 C 160 360 240 300 340 270 S 560 210 700 150" fill="none" stroke="#faf7ef" strokeWidth="2" strokeDasharray="10 12" strokeLinecap="round" />
+              {/* depot + camp markers */}
+              <g transform="translate(40 400)">
+                <rect x="-16" y="-26" width="32" height="26" rx="5" fill="#1e1811" />
+                <rect x="-10" y="-20" width="8" height="8" rx="1.5" fill="#dcae4f" />
+                <rect x="2" y="-20" width="8" height="8" rx="1.5" fill="#dcae4f" />
+                <text y="16" textAnchor="middle" fontSize="11" fontWeight="800" fill="#3c3021" fontFamily="Manrope">Depot · DXB</text>
+              </g>
+              <g transform="translate(700 150)">
+                <path d="M-22 0 Q 0 -34 22 0 Z" fill="#a87520" />
+                <path d="M-10 0 Q 0 -16 10 0 Z" fill="#f3ecdb" />
+                <text y="18" textAnchor="middle" fontSize="11" fontWeight="800" fill="#3c3021" fontFamily="Manrope">Desert Camp</text>
+              </g>
+              {/* pickup pins */}
+              {items.map((b, i) => {
+                const { x, y } = hashPos(b.pickupLocation, i);
+                const t = trips.find((tt) => tt.bookingId === b.id);
+                const tone = !t ? "#93825f" : t.status === "on_the_way" ? "#2f7e76" : t.status === "arrived" ? "#46558c" : ["guests_picked_up", "safari_started", "safari_completed", "dropped_off", "completed"].includes(t.status) ? "#3c6447" : "#c8912f";
+                const sel = mapSel === b.id;
+                return (
+                  <g key={b.id} transform={`translate(${x} ${y})`} onClick={() => setMapSel(sel ? null : b.id)} className="cursor-pointer" style={{ transition: "transform .2s" }}>
+                    {sel && <circle r="22" fill={tone} opacity="0.18" />}
+                    <path d="M0 6 C -11 -6 -9 -22 0 -22 C 9 -22 11 -6 0 6 Z" fill={tone} stroke="#faf7ef" strokeWidth="2" transform={sel ? "scale(1.25)" : undefined} style={{ transition: "transform .15s" }} />
+                    <text y="-9" textAnchor="middle" fontSize="10" fontWeight="900" fill="#fff" fontFamily="Manrope" transform={sel ? "scale(1.25)" : undefined}>{i + 1}</text>
+                    <title>{`${b.pickupTime} · ${customers.find((c) => c.id === b.customerId)?.name ?? ""} · ${b.pickupLocation}`}</title>
+                  </g>
+                );
+              })}
+            </svg>
+            {items.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center"><p className="chip bg-ink-900 text-gold-300">No pickups to plot on {fmtDate(date)}</p></div>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-3 border-t border-sand-200 bg-sand-50">
+            <span className="text-[11px] font-extrabold uppercase tracking-wide text-ink-400">Legend</span>
+            {[["#c8912f", "Awaiting pickup"], ["#2f7e76", "On the way"], ["#46558c", "Arrived"], ["#3c6447", "Picked up / on safari"], ["#93825f", "Not yet assigned"]].map(([c, l]) => (
+              <span key={l} className="flex items-center gap-1.5 text-[11px] font-bold text-ink-600"><span className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />{l}</span>
+            ))}
+            <span className="grow" />
+            <span className="text-[11px] font-bold text-ink-400">Tap a pin for actions</span>
+          </div>
+          {selB && (() => {
+            const c = customers.find((x) => x.id === selB.customerId);
+            const p = packages.find((x) => x.id === selB.packageId);
+            const v = vehicles.find((x) => x.id === selB.vehicleId);
+            const d = drivers.find((x) => x.id === selB.driverId);
+            const phone = (c?.phone ?? "").replace(/\s/g, "");
+            const wa = (c?.whatsapp || c?.phone || "").replace(/[^\d]/g, "");
+            return (
+              <div className="px-4 py-3.5 border-t border-sand-200 bg-gold-200/15 anim-fade">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="grow min-w-[220px]">
+                    <p className="font-extrabold text-ink-900">{items.indexOf(selB) + 1}. {c?.name} <span className="chip bg-sand-200 text-ink-600 ml-1">{fmtClock(selB.pickupTime)}</span></p>
+                    <p className="text-[12px] font-bold text-ink-500 mt-0.5 flex items-center gap-1.5"><MapPin size={12} className="text-gold-600" />{selB.pickupLocation} · {p?.name} · {guestsOf(selB)} guests · {v?.plate ?? "vehicle TBC"} · {d?.name ?? "driver TBC"}</p>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    <a className="btn btn-outline btn-sm" href={`tel:${phone}`}><Phone size={13} />Call</a>
+                    <a className="btn btn-success btn-sm" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}`}><MessageCircle size={13} />Chat</a>
+                    <a className="btn btn-dark btn-sm" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selB.pickupLocation + ", Dubai, UAE")}`}><Navigation size={13} />Navigate</a>
+                    <button className="btn btn-primary btn-sm" onClick={() => setRoute({ page: "bookings", params: { open: selB.id } })}>Booking →</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {view === "list" && (items.length === 0 ? (
         <div className="card"><EmptyState title={`No pickups on ${fmtDate(date)}`} body="Confirmed and assigned bookings with a pickup time appear here for the daily run sheet." /></div>
       ) : (
         <div className="space-y-3">
@@ -298,7 +414,7 @@ export function Pickups() {
             );
           })}
         </div>
-      )}
+      ))}
     </div>
   );
 }
