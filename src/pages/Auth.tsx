@@ -3,7 +3,7 @@ import { ArrowRight, CheckCircle2, Compass, KeyRound, Mail, ShieldCheck } from "
 import { useStore } from "../lib/store";
 import { Logo } from "../components/Layout";
 import { IMG } from "../lib/data";
-import { cx } from "../lib/utils";
+import { cx, imgFallback } from "../lib/utils";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -47,7 +47,7 @@ export default function Auth({ onPublic }: { onPublic: () => void }) {
     <div className="min-h-screen lg:grid lg:grid-cols-[1.15fr_1fr]">
       {/* Desert panel */}
       <div className="relative hidden lg:block overflow-hidden bg-ink-950 grain">
-        <img src={IMG.hero} alt="Desert safari convoy at sunset" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+        <img src={IMG.hero} alt="Desert safari convoy at sunset" onError={imgFallback} className="absolute inset-0 w-full h-full object-cover opacity-80" />
         <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/35 to-ink-950/20" />
         <div className="relative h-full flex flex-col justify-between p-10 xl:p-14">
           <Logo dark />

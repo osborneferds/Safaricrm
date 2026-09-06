@@ -4,7 +4,8 @@ import type { Booking, CompanySettings, DB, ID, Notif, PayMethod, Route, Session
 import { defaultSettings, driverConflict, guestsOf, payStatusOf, seedDB, seedTemplates, vehicleConflict } from "./data";
 import { addDaysISO, nowISO, todayISO, uid } from "./utils";
 
-const DB_KEY = "dunesuite_db_v1";
+// v2: re-seeds with stable Unsplash CDN photography (v1 pointed at a private host)
+const DB_KEY = "dunesuite_db_v2";
 const SESSION_KEY = "dunesuite_session_v1";
 
 export interface Toast { id: string; msg: string; kind: "success" | "error" | "info"; }

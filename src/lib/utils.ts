@@ -147,3 +147,16 @@ export const QUOTE_STATUS: Record<QuoteStatus, Meta> = {
 export const METHOD_LABEL: Record<string, string> = {
   cash: "Cash", card: "Card", bank: "Bank Transfer", online: "Online Payment", other: "Other",
 };
+
+// Graceful image fallback — if a photo 404s (offline / blocked CDN), swap in
+// an inline SVG dune scene so layouts never break.
+export const imgFallback = (e: { currentTarget: HTMLImageElement }) => {
+  const el = e.currentTarget;
+  if (el.dataset.fb) return;
+  el.dataset.fb = "1";
+  el.src =
+    "data:image/svg+xml," +
+    encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' width='1400' height='800'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#f3ecdb'/><stop offset='1' stop-color='#e9c87f'/></linearGradient></defs><rect width='1400' height='800' fill='url(#g)'/><circle cx='1050' cy='170' r='95' fill='#dcae4f'/><path d='M0 520 Q 350 400 700 480 T 1400 460 V800 H0 Z' fill='#c9ae77'/><path d='M0 620 Q 400 520 800 600 T 1400 580 V800 H0 Z' fill='#b69355'/><path d='M0 720 Q 450 640 900 700 T 1400 680 V800 H0 Z' fill='#a87520'/></svg>`,
+    );
+};

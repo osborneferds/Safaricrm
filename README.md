@@ -104,5 +104,6 @@ src/
 
 ## Notes
 
+- Photography is served from the public **Unsplash CDN** (`images.unsplash.com`, free license). If an image ever fails to load, the UI automatically swaps in an inline SVG dune scene — layouts never break, even fully offline.
 - State-based routing means there is exactly one URL (`index.html`) — no 404/redirect config needed on static hosts; the public booking page deep-links via `#/public`.
 - The WhatsApp, payment-gateway, and email touchpoints are clean adapter interfaces marked *pending configuration* — ready for the official WhatsApp Business Cloud API, Stripe/checkout, etc.

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, Check, CreditCard, MapPin, MessageCircle, Users } from "lucide-react";
 import { useStore } from "../lib/store";
 import { calcTotal } from "../lib/data";
-import { cx, fmtDate, money, nowISO, todayISO, uid } from "../lib/utils";
+import { cx, fmtDate, imgFallback, money, nowISO, todayISO, uid } from "../lib/utils";
 import { IMG } from "../lib/data";
 
 const PICKUPS = ["Atlantis The Palm", "Dubai Marina — Address Hotel", "Downtown — Armani Hotel", "JBR — Rixos", "Al Barsha — Rotana Hotel", "Deira — Hyatt Regency", "Mirdif — City Centre area", "Palm Jumeirah — Anantara", "Business Bay — Executive Towers", "Other (tell us in notes)"];
@@ -113,7 +113,7 @@ export default function PublicBooking({ onBack }: { onBack: () => void }) {
                 <button key={p.id} onClick={() => { setPackageId(p.id); }}
                   className={cx("card overflow-hidden text-left transition-all cursor-pointer group hover:-translate-y-0.5 hover:shadow-float", packageId === p.id && "ring-2 ring-gold-500 shadow-float")}>
                   <div className="h-32 relative overflow-hidden">
-                    {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full flex items-center justify-center" style={{ background: `${p.accent}22` }}><span className="text-4xl">🌇</span></div>}
+                    {p.image ? <img src={p.image} alt={p.name} onError={imgFallback} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full flex items-center justify-center" style={{ background: `${p.accent}22` }}><span className="text-4xl">🌇</span></div>}
                     {packageId === p.id && <span className="absolute top-2 right-2 w-7 h-7 rounded-full bg-gold-500 text-ink-950 flex items-center justify-center anim-pop"><Check size={15} /></span>}
                   </div>
                   <div className="p-3.5">
@@ -221,7 +221,7 @@ const Shell = ({ children, settings, onBack, embed }: { children: React.ReactNod
   <div className="min-h-screen dune-bg">
     <header className="sticky top-0 z-40 bg-[#f1ead9]/85 backdrop-blur-md border-b border-sand-300/60 no-print">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
-        <img src={IMG.hero} alt="" className="w-8 h-8 rounded-lg object-cover" />
+        <img src={IMG.hero} alt="" onError={imgFallback} className="w-8 h-8 rounded-lg object-cover" />
         <div className="leading-tight">
           <p className="font-display font-black text-ink-900">{settings}</p>
           <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-gold-600">powered by DuneSuite</p>

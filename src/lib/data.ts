@@ -3,14 +3,15 @@ import type {
 } from "./types";
 import { addDaysISO, daysFromNow, overlaps, toMin, todayISO, uid } from "./utils";
 
-// ─── Generated photography assets ───────────────────────────────────────────
+// ─── Photography assets — stable public Unsplash CDN (free license) ────────
+const U = (id: string) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1400&q=80`;
 export const IMG = {
-  hero: "https://image.qwenlm.ai/generated-images/95c215dd-14b2-4882-918a-b45dd8e7ee56/_result.png",
-  camp: "https://image.qwenlm.ai/generated-images/a38f6bbd-9a37-49e7-9dc2-3a1304430058/_result.png",
-  vip: "https://image.qwenlm.ai/generated-images/274cdee5-83d6-4b13-8ddf-a32d70c485ba/_result.png",
-  quad: "https://image.qwenlm.ai/generated-images/164eadbf-ca6d-4abf-b82a-4684234b0091/_result.png",
-  morning: "https://image.qwenlm.ai/generated-images/06cc14b6-cc2d-4900-bb51-69bcb3d417fb/_result.png",
-  falcon: "https://image.qwenlm.ai/generated-images/ebffe20f-3e4b-46f2-874f-0e967f2ae4e8/_result.png",
+  hero: U("photo-1588310558566-b983c7d257e4"),    // SUV kicking up dust through dunes
+  camp: U("photo-1784749464984-9ec4decebc81"),    // desert camp, white tents at twilight
+  vip: U("photo-1784749464954-3603b21a7a0d"),     // luxury lounge canopy at sunset
+  quad: U("photo-1695878868496-fcbd6ef47f57"),    // buggies crossing the desert
+  morning: U("photo-1549944850-84e00be4203b"),    // camels resting on the sand
+  falcon: U("photo-1742237281799-85c274bbbec1"),  // falconry in the desert
 };
 
 export const INSPECTION_ITEMS = [

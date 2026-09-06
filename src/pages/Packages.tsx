@@ -4,7 +4,7 @@ import { useStore, useTenant } from "../lib/store";
 import type { ID, SafariPackage } from "../lib/types";
 import { IMG } from "../lib/data";
 import { Confirm, EmptyState, Field, Modal, StatusPill, Toggle, Drawer } from "../components/ui";
-import { money, uid } from "../lib/utils";
+import { imgFallback, money, uid } from "../lib/utils";
 
 const blank = (tenantId: ID): SafariPackage => ({
   id: uid(), tenantId, name: "", description: "", duration: "6 hours", adultPrice: 250, childPrice: 150,
@@ -62,7 +62,7 @@ export default function Packages() {
             <div key={p.id} className="card overflow-hidden group hover:-translate-y-0.5 hover:shadow-float transition-all anim-rise flex flex-col">
               <button className="relative h-40 overflow-hidden cursor-pointer" onClick={() => setSel(p.id)}>
                 {p.image
-                  ? <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ? <img src={p.image} alt={p.name} onError={imgFallback} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   : <div className="w-full h-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${p.accent}33, ${p.accent}11)` }}><span className="font-display font-black text-5xl" style={{ color: p.accent }}>🌇</span></div>}
                 <span className="absolute top-2.5 left-2.5 chip bg-ink-950/75 text-gold-300 backdrop-blur-sm"><Clock size={11} />{p.duration}</span>
                 {!p.active && <span className="absolute inset-0 bg-ink-950/60 flex items-center justify-center"><span className="chip bg-clay-100 text-clay-700"><Ban size={11} />Inactive — hidden</span></span>}
@@ -100,7 +100,7 @@ export default function Packages() {
       <Drawer open={!!selP} onClose={() => setSel(null)} wide title={selP?.name ?? ""} sub={selP ? `${selP.duration} · max ${selP.maxPax} guests per vehicle` : ""}>
         {selP && (
           <div className="space-y-4">
-            {selP.image && <img src={selP.image} alt={selP.name} className="rounded-xl w-full h-52 object-cover" />}
+            {selP.image && <img src={selP.image} alt={selP.name} onError={imgFallback} className="rounded-xl w-full h-52 object-cover" />}
             <p className="text-sm font-semibold text-ink-600 leading-relaxed">{selP.description}</p>
             <div className="grid grid-cols-3 gap-3">
               <PriceCard k="Per adult" v={money(selP.adultPrice, cur)} tone={selP.accent} />
