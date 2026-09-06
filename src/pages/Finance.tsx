@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Banknote, CreditCard, Download, FileText, MessageCircle, Pencil, Plus, Printer, Ticket, Wallet } from "lucide-react";
 import { useStore, useTenant } from "../lib/store";
-import type { ID, PayMethod, Quotation, QuoteStatus } from "../lib/types";
+import type { Booking, ID, PayMethod, Quotation, QuoteStatus } from "../lib/types";
 import { calcTotal, payStatusOf } from "../lib/data";
 import { METHOD_LABEL, PAY_STATUS, QUOTE_STATUS, addDaysISO, cx, daysFromNow, downloadCSV, fmtDate, fmtDateTime, money, nowISO, todayISO, uid } from "../lib/utils";
 import { EmptyState, Field, Modal, Pager, SearchBox, StatusPill, Tabs } from "../components/ui";
@@ -250,18 +250,17 @@ function Quotations() {
       cid = uid();
       mutate((d) => { d.customers.unshift({ id: cid!, tenantId: tid, name: qt.partyName, phone: "", whatsapp: "", email: "", country: "—", notes: "From quotation " + qt.code, createdAt: nowISO() }); });
     }
-    const code = `${settings.bookingPrefix}-${new Date().getFullYear()}-${String(db.seq + 1).padStart(6, "0")}`;
-    const b = {
-      id: uid(), tenantId: tid, code, customerId: cid!, packageId: qt.packageId, date: qt.date,
+    const b: Booking = {
+      id: uid(), tenantId: tid, code: "", customerId: cid!, packageId: qt.packageId, date: qt.date,
       adults: qt.adults, children: qt.children, pickupLocation: qt.pickupLocation, pickupAddress: "",
       pickupTime: "15:30", dropoffLocation: "Same as pickup", specialReq: "", vehicleId: null, driverId: null,
       addons: [], discount: qt.discount, taxPct: qt.taxPct, total: qt.total, source: "Quotation " + qt.code,
-      notes: qt.notes, status: "confirmed" as const, createdAt: nowISO(), createdBy: user!.id,
+      notes: qt.notes, status: "confirmed", createdAt: nowISO(), createdBy: user!.id,
     };
-    const err = saveBooking(b, true);
+    const err = saveBooking(b, true); // allocates the official booking code
     if (err) { toast(err, "error"); return; }
-    mutate((d) => { d.seq += 1; const x = d.quotations.find((y) => y.id === qt.id); if (x) x.status = "accepted"; });
-    toast(`Booking ${code} created from ${qt.code} ✓`);
+    mutate((d) => { const x = d.quotations.find((y) => y.id === qt.id); if (x) x.status = "accepted"; });
+    toast(`Booking ${b.code} created from ${qt.code} ✓`);
     setRoute({ page: "bookings", params: { open: b.id } });
   };
 

@@ -103,7 +103,6 @@ export default function CRM() {
     const err = saveBooking(booking, true);
     if (err) { toast(err, "error"); return; }
     mutate((d) => {
-      d.seq += 1;
       const l = d.leads.find((x) => x.id === lead.id);
       if (l) { l.bookingId = booking.id; l.status = "confirmed"; }
     });

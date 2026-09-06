@@ -64,7 +64,7 @@ function Root() {
     }
   })();
 
-  return <Layout key={route.page}>{page}</Layout>;
+  return <Layout>{page}</Layout>;
 }
 
 export default function App() {

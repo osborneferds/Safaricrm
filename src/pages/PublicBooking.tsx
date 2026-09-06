@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, Check, CreditCard, MapPin, MessageCircle, Users } from "lucide-react";
 import { useStore } from "../lib/store";
+import type { Booking } from "../lib/types";
 import { calcTotal } from "../lib/data";
-import { cx, fmtDate, money, nowISO, todayISO, uid } from "../lib/utils";
+import { cx, fmtDate, imgFallback, money, nowISO, todayISO, uid } from "../lib/utils";
 import { IMG } from "../lib/data";
 
 const PICKUPS = ["Atlantis The Palm", "Dubai Marina — Address Hotel", "Downtown — Armani Hotel", "JBR — Rixos", "Al Barsha — Rotana Hotel", "Deira — Hyatt Regency", "Mirdif — City Centre area", "Palm Jumeirah — Anantara", "Business Bay — Executive Towers", "Other (tell us in notes)"];
 
 export default function PublicBooking({ onBack }: { onBack: () => void }) {
-  const { db, mutate, toast } = useStore();
+  const { db, mutate, toast, saveBooking } = useStore();
   // Widget-compatible: honour ?tenant= (validated against real tenants) and ?embed=1 for iframe use
   const qp = new URLSearchParams(window.location.search);
   const qTenant = qp.get("tenant");
@@ -47,20 +48,16 @@ export default function PublicBooking({ onBack }: { onBack: () => void }) {
       cid = uid();
       mutate((d) => { d.customers.unshift({ id: cid!, tenantId, name: guest.name.trim(), phone: guest.phone.trim(), whatsapp: guest.phone.trim(), email: guest.email.trim(), country: "—", notes: "Booked via public page.", createdAt: nowISO() }); });
     }
-    const code = `${settings.bookingPrefix}-${new Date().getFullYear()}-${String(db.seq + 1).padStart(6, "0")}`;
-    const id = uid();
-    mutate((d) => {
-      d.bookings.unshift({
-        id, tenantId, code, customerId: cid!, packageId: pkg.id, date, adults, children,
-        pickupLocation: pickup, pickupAddress: guest.notes, pickupTime: "15:30", dropoffLocation: "Same as pickup",
-        specialReq: guest.notes, vehicleId: null, driverId: null, addons: [], discount: 0, taxPct: settings.taxPct,
-        total: calc.total, source: "Public Booking Page", notes: "Online self-service booking", status: "pending",
-        createdAt: nowISO(), createdBy: "public",
-      });
-      d.seq += 1;
-      d.notifs.unshift({ id: uid(), tenantId, kind: "booking", title: `New online booking ${code}`, body: `${guest.name} · ${adults + children} guests · ${pkg.name} on ${fmtDate(date)}`, at: nowISO(), read: false, link: { page: "bookings", id } });
-    });
-    setDone({ code, id, total: calc.total });
+    const booking: Booking = {
+      id: uid(), tenantId, code: "", customerId: cid!, packageId: pkg.id, date, adults, children,
+      pickupLocation: pickup, pickupAddress: guest.notes, pickupTime: "15:30", dropoffLocation: "Same as pickup",
+      specialReq: guest.notes, vehicleId: null, driverId: null, addons: [], discount: 0, taxPct: settings.taxPct,
+      total: calc.total, source: "Public Booking Page", notes: "Online self-service booking", status: "pending",
+      createdAt: nowISO(), createdBy: "public",
+    };
+    const err = saveBooking(booking, true); // code + sequence allocated atomically, notification fired
+    if (err) { toast(err, "error"); return; }
+    setDone({ code: booking.code, id: booking.id, total: calc.total });
     window.scrollTo({ top: 0 });
   };
 
@@ -113,7 +110,7 @@ export default function PublicBooking({ onBack }: { onBack: () => void }) {
                 <button key={p.id} onClick={() => { setPackageId(p.id); }}
                   className={cx("card overflow-hidden text-left transition-all cursor-pointer group hover:-translate-y-0.5 hover:shadow-float", packageId === p.id && "ring-2 ring-gold-500 shadow-float")}>
                   <div className="h-32 relative overflow-hidden">
-                    {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full flex items-center justify-center" style={{ background: `${p.accent}22` }}><span className="text-4xl">🌇</span></div>}
+                    {p.image ? <img src={p.image} alt={p.name} onError={imgFallback} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full flex items-center justify-center" style={{ background: `${p.accent}22` }}><span className="text-4xl">🌇</span></div>}
                     {packageId === p.id && <span className="absolute top-2 right-2 w-7 h-7 rounded-full bg-gold-500 text-ink-950 flex items-center justify-center anim-pop"><Check size={15} /></span>}
                   </div>
                   <div className="p-3.5">
@@ -221,7 +218,7 @@ const Shell = ({ children, settings, onBack, embed }: { children: React.ReactNod
   <div className="min-h-screen dune-bg">
     <header className="sticky top-0 z-40 bg-[#f1ead9]/85 backdrop-blur-md border-b border-sand-300/60 no-print">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
-        <img src={IMG.hero} alt="" className="w-8 h-8 rounded-lg object-cover" />
+        <img src={IMG.hero} alt="" onError={imgFallback} className="w-8 h-8 rounded-lg object-cover" />
         <div className="leading-tight">
           <p className="font-display font-black text-ink-900">{settings}</p>
           <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-gold-600">powered by DuneSuite</p>

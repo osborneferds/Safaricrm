@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, Check, ChevronDown, LogOut, MapPin, MessageCircle, Navigation, Phone, Star, Users, X } from "lucide-react";
-import { useStore } from "../lib/store";
+import { useStore, useTenant } from "../lib/store";
 import type { Trip } from "../lib/types";
 import { TRIP_STATUS, cx, fmtClock, fmtDate, fmtDateShort, todayISO } from "../lib/utils";
 import { guestsOf } from "../lib/data";
@@ -22,8 +22,8 @@ export default function DriverApp() {
   const driver = db.drivers.find((d) => d.id === user!.driverId) ?? db.drivers.find((d) => d.tenantId === user!.tenantId && d.name === user!.name);
   const trips = db.trips.filter((t) => t.driverId === driver?.id);
   const bookings = db.bookings.filter((b) => b.tenantId === user!.tenantId);
-  const customers = db.customers;
-  const vehicles = db.vehicles;
+  const customers = useTenant(db.customers);
+  const vehicles = useTenant(db.vehicles);
   const [openId, setOpenId] = useState<string | null>(null);
   const today = todayISO();
 

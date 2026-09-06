@@ -171,9 +171,8 @@ export function OpsBoard() {
     active.filter((b) => col.statuses.includes(b.status) && (col.id === "done" ? b.date >= addDaysISO(-2) : b.date >= today))
       .sort((a, b) => a.date.localeCompare(b.date) || a.pickupTime.localeCompare(b.pickupTime));
 
-  const drop = (colId: string) => {
-    const b = bookings.find((x) => x.id === dragId);
-    setOverCol(null); setDragId(null);
+  const moveTo = (bookingId: ID, colId: string) => {
+    const b = bookings.find((x) => x.id === bookingId);
     if (!b || role === "sales") return;
     const col = COLS.find((c) => c.id === colId)!;
     if (col.statuses.includes(b.status)) return;
@@ -183,10 +182,15 @@ export function OpsBoard() {
     setBookingStatus(b.id, target);
     toast(`${b.code} → ${col.label}`, "info");
   };
+  const drop = (colId: string) => {
+    const id = dragId;
+    setOverCol(null); setDragId(null);
+    if (id) moveTo(id, colId);
+  };
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-semibold text-ink-500">Drag bookings across stages. Statuses sync with the booking record — completed and cancelled never appear here. {role === "sales" && <span className="text-clay-600 font-bold">Sales role has read-only board access.</span>}</p>
+      <p className="text-sm font-semibold text-ink-500">Drag bookings across stages — or tap the ◂ ▸ arrows on a card (works on touch screens). Statuses sync with the booking record; completed and cancelled never appear here. {role === "sales" && <span className="text-clay-600 font-bold">Sales role has read-only board access.</span>}</p>
       <div className="overflow-x-auto pb-2 -mx-4 sm:mx-0 px-4 sm:px-0">
         <div className="flex gap-3 min-w-[1180px]">
           {COLS.map((col) => {
@@ -206,6 +210,7 @@ export function OpsBoard() {
                   {items.map((b) => {
                     const p = packages.find((x) => x.id === b.packageId);
                     const ps = payStatusOf(db, b);
+                    const ci = COLS.findIndex((c) => c.id === col.id);
                     return (
                       <div key={b.id} draggable={role !== "sales"} onDragStart={() => setDragId(b.id)}
                         onClick={() => setRoute({ page: "bookings", params: { open: b.id } })}
@@ -220,6 +225,17 @@ export function OpsBoard() {
                           <span className="flex items-center gap-1"><Clock size={11} />{b.date === today ? fmtClock(b.pickupTime) : fmtDateShort(b.date) + " " + b.pickupTime}</span>
                           <span className="text-right">{vehicles.find((v) => v.id === b.vehicleId)?.plate ?? <span className="text-clay-500">no vehicle</span>}<span className="block text-ink-400">{drivers.find((d) => d.id === b.driverId)?.name.split(" ")[0] ?? "no driver"}</span></span>
                         </div>
+                        {role !== "sales" && (
+                          <div className="flex items-center justify-between mt-2">
+                            <button title={ci > 0 ? `Move to ${COLS[ci - 1].label}` : "Already at first stage"} aria-label={ci > 0 ? `Move to ${COLS[ci - 1].label}` : "First stage"} disabled={ci === 0}
+                              onClick={(e) => { e.stopPropagation(); if (ci > 0) moveTo(b.id, COLS[ci - 1].id); }}
+                              className="p-1 -ml-1 rounded-md text-ink-400 hover:text-ink-900 hover:bg-sand-200/80 transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"><ChevronLeft size={15} /></button>
+                            <span className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-ink-300 select-none">move stage</span>
+                            <button title={ci < COLS.length - 1 ? `Move to ${COLS[ci + 1].label}` : "Final stage"} aria-label={ci < COLS.length - 1 ? `Move to ${COLS[ci + 1].label}` : "Final stage"} disabled={ci === COLS.length - 1}
+                              onClick={(e) => { e.stopPropagation(); if (ci < COLS.length - 1) moveTo(b.id, COLS[ci + 1].id); }}
+                              className="p-1 -mr-1 rounded-md text-ink-400 hover:text-ink-900 hover:bg-sand-200/80 transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"><ChevronRight size={15} /></button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
