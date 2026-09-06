@@ -131,17 +131,19 @@ export const vehicleIssues = (v: Vehicle) => {
 };
 
 export const buildReminders = (db: DB, tenantId: string): ReminderItem[] => {
-  const t = todayISO();
   const out: ReminderItem[] = [];
+  const s = db.settings.find((x) => x.tenantId === tenantId);
+  const rem = s?.reminders ?? { day24: true, dayOf: true, after: true, unpaid: true };
+  const cur = s?.currency ?? "AED";
   const cust = (id: string) => db.customers.find((c) => c.id === id)?.name ?? "Guest";
   db.bookings.filter((b) => b.tenantId === tenantId && !["cancelled", "no_show"].includes(b.status)).forEach((b) => {
     const delta = daysFromNow(b.date);
     const name = cust(b.customerId);
-    if (delta === 1) out.push({ id: `r24-${b.id}`, when: b.date, kind: "24h_before", bookingCode: b.code, customer: name, channel: "WhatsApp · Email", text: `Hi ${name.split(" ")[0]}! Your desert safari is tomorrow 🌇 Pickup at ${b.pickupTime} from ${b.pickupLocation}.`, state: delta <= 0 ? "ready" : "scheduled" });
-    if (delta === 0) out.push({ id: `rd0-${b.id}`, when: b.date, kind: "day_of", bookingCode: b.code, customer: name, channel: "WhatsApp", text: `Your driver will arrive at your pickup location at ${b.pickupTime}. Booking ${b.code}.`, state: "ready" });
-    if (delta < 0 && b.status === "completed") out.push({ id: `raf-${b.id}`, when: b.date, kind: "after", bookingCode: b.code, customer: name, channel: "WhatsApp · Email", text: `Thank you for joining us, ${name.split(" ")[0]}! Please leave a review ⭐`, state: "sent" });
+    if (rem.day24 && delta === 1) out.push({ id: `r24-${b.id}`, when: b.date, kind: "24h_before", bookingCode: b.code, customer: name, channel: "WhatsApp · Email", text: `Hi ${name.split(" ")[0]}! Your desert safari is tomorrow 🌇 Pickup at ${b.pickupTime} from ${b.pickupLocation}.`, state: "ready" });
+    if (rem.dayOf && delta === 0) out.push({ id: `rd0-${b.id}`, when: b.date, kind: "day_of", bookingCode: b.code, customer: name, channel: "WhatsApp", text: `Your driver will arrive at your pickup location at ${b.pickupTime}. Booking ${b.code}.`, state: "ready" });
+    if (rem.after && delta < 0 && b.status === "completed") out.push({ id: `raf-${b.id}`, when: b.date, kind: "after", bookingCode: b.code, customer: name, channel: "WhatsApp · Email", text: `Thank you for joining us, ${name.split(" ")[0]}! Please leave a review ⭐`, state: "sent" });
     const bal = b.total - bookingPaid(db, b.id);
-    if (bal > 0 && delta >= 0 && b.status !== "inquiry") out.push({ id: `run-${b.id}`, when: b.date, kind: "unpaid", bookingCode: b.code, customer: name, channel: "WhatsApp", text: `Your booking payment of AED ${bal} is still pending for ${b.code}.`, state: "ready" });
+    if (rem.unpaid && bal > 0 && delta >= 0 && b.status !== "inquiry") out.push({ id: `run-${b.id}`, when: b.date, kind: "unpaid", bookingCode: b.code, customer: name, channel: "WhatsApp", text: `Your booking payment of ${cur} ${bal} is still pending for ${b.code}.`, state: "ready" });
   });
   return out.sort((a, b) => a.when.localeCompare(b.when));
 };

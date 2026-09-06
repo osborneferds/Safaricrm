@@ -97,18 +97,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const d = dbRef.current;
     if (d.users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())) return { ok: false, error: "That email is already registered." };
     const tenantId = uid();
+    const userId = uid();
     mutate((x) => {
       x.tenants.push({ id: tenantId, name: company, slug: company.toLowerCase().replace(/[^a-z0-9]+/g, "-"), plan: "starter", planStatus: "trial", trialEnds: addDaysISO(14), active: true, createdAt: todayISO(), billing: [{ id: uid(), date: todayISO(), amount: 0, plan: "starter", status: "paid" }] });
       x.settings.push(defaultSettings(tenantId, company, company.slice(0, 2).toUpperCase()));
       x.templates.push(...seedTemplates());
-      const userId = uid();
       x.users.push({ id: userId, tenantId, name, email: email.trim(), password, role: "admin", active: true, color: "#a87520", createdAt: nowISO() });
-      x.notifs.push({ id: uid(), tenantId, kind: "system", title: "Welcome to DuneSuite 🌇", body: "Your 14-day Professional trial has started. Add packages, drivers and vehicles to begin.", at: nowISO(), read: false });
+      x.notifs.push({ id: uid(), tenantId, kind: "system", title: "Welcome to DuneSuite 🌇", body: "Your 14-day Starter trial has started. Add packages, drivers and vehicles to begin.", at: nowISO(), read: false });
       x.seq = Math.max(x.seq, 1000);
     });
-    const created = JSON.parse(localStorage.getItem(DB_KEY)!) as DB;
-    const u = created.users.find((x) => x.email.toLowerCase() === email.trim().toLowerCase())!;
-    doLogin(u.id, tenantId);
+    doLogin(userId, tenantId);
     return { ok: true };
   }, [doLogin, mutate]);
 
@@ -136,12 +134,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (c) return `Vehicle conflict — ${v?.plate ?? "vehicle"} is already assigned to ${c.code} on that date.`;
     }
     if (["cancelled", "no_show"].includes(b.status) && (b.driverId || b.vehicleId)) return "Cancelled / no-show bookings cannot have a driver or vehicle assigned.";
+    if (b.driverId) {
+      const dr = d.drivers.find((x) => x.id === b.driverId);
+      if (dr && dr.daysOff?.includes(new Date(b.date + "T12:00:00").getDay())) return `${dr.name} is scheduled off on that day — pick another driver.`;
+    }
     mutate((x) => {
+      // Single authority for booking codes: allocate the sequence atomically at write time
+      if (isNew) {
+        const s = x.settings.find((y) => y.tenantId === b.tenantId);
+        x.seq += 1;
+        b.code = `${s?.bookingPrefix ?? "DS"}-${new Date().getFullYear()}-${String(x.seq).padStart(6, "0")}`;
+      }
       const i = x.bookings.findIndex((y) => y.id === b.id);
       if (i >= 0) x.bookings[i] = b; else x.bookings.unshift(b);
       const verb = isNew ? "booking.created" : "booking.updated";
       x.audit.unshift({ id: uid(), tenantId: b.tenantId, userId: u?.id ?? "?", userName: u?.name ?? "System", action: verb, entity: "Booking", entityId: b.id, detail: `${isNew ? "Created" : "Updated"} ${b.code} · ${b.date} ${b.pickupTime} · ${guestsOf(b)} guests`, at: nowISO(), ip: "2.50.44.118" });
-      if (isNew) x.notifs.unshift({ id: uid(), tenantId: b.tenantId, kind: "booking", title: `New booking ${b.code}`, body: `${d.customers.find((c) => c.id === b.customerId)?.name ?? "Guest"} · ${guestsOf(b)} guests on ${b.date}`, at: nowISO(), read: false, link: { page: "bookings", id: b.id } });
+      if (isNew) x.notifs.unshift({ id: uid(), tenantId: b.tenantId, kind: "booking", title: `New booking ${b.code}`, body: `${x.customers.find((c) => c.id === b.customerId)?.name ?? "Guest"} · ${guestsOf(b)} guests on ${b.date}${b.source === "Public Booking Page" ? " · online" : ""}`, at: nowISO(), read: false, link: { page: "bookings", id: b.id } });
     });
     void existing;
     return null;
@@ -158,6 +166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (dr && ["off_duty", "leave"].includes(dr.status)) return `${dr.name} is ${dr.status === "leave" ? "on leave" : "off duty"} and cannot be assigned.`;
       const lic = new Date(dr?.licenseExpiry ?? "2099-01-01") < new Date(todayISO() + "T00:00:00");
       if (dr && lic) return `${dr.name}'s driving licence is expired — assignment blocked.`;
+      if (dr && dr.daysOff?.includes(new Date(b.date + "T12:00:00").getDay())) return `${dr.name} is scheduled off on ${b.date} — pick another driver.`;
       const c = driverConflict(d, driverId, next);
       if (c) return `Driver conflict — already assigned to ${c.code} (${c.pickupTime}) on ${b.date}.`;
     }
@@ -196,15 +205,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const s = b.tenantId ? d.settings.find((x) => x.tenantId === b.tenantId) : null;
     const already = d.payments.filter((p) => p.bookingId === bookingId && p.status === "captured").reduce((a, p) => a + p.amount, 0);
     if (already + amount > b.total + 0.01 && !allowOverpay) return `This would overpay the booking by ${Math.round((already + amount - b.total) * 100) / 100}. Tick “allow overpayment” to record it anyway.`;
+    const cur = s?.currency ?? "AED";
     mutate((x) => {
       const bb = x.bookings.find((y) => y.id === bookingId)!;
       const seqNo = 4200 + x.payments.length + 1;
-      x.payments.unshift({ id: uid(), tenantId: bb.tenantId, bookingId, invoiceNo: `${s?.invoicePrefix ?? "INV"}-2026-${String(seqNo).padStart(4, "0")}`, amount, method, date: nowISO(), ref, status: "captured", note });
+      x.payments.unshift({ id: uid(), tenantId: bb.tenantId, bookingId, invoiceNo: `${s?.invoicePrefix ?? "INV"}-${new Date().getFullYear()}-${String(seqNo).padStart(4, "0")}`, amount, method, date: nowISO(), ref, status: "captured", note });
       const paidNow = x.payments.filter((p) => p.bookingId === bookingId && p.status === "captured").reduce((a, p) => a + p.amount, 0);
       if (paidNow >= bb.total && ["pending", "confirmed", "inquiry", "paid"].includes(bb.status)) bb.status = "paid";
       const u = x.users.find((y) => y.id === session?.userId);
-      x.audit.unshift({ id: uid(), tenantId: bb.tenantId, userId: u?.id ?? "?", userName: u?.name ?? "System", action: "payment.recorded", entity: "Payment", entityId: bookingId, detail: `AED ${amount} via ${method} on ${bb.code}`, at: nowISO(), ip: "2.50.44.118" });
-      x.notifs.unshift({ id: uid(), tenantId: bb.tenantId, kind: "payment", title: `Payment received — AED ${amount.toLocaleString()}`, body: `${bb.code} · balance AED ${Math.max(0, bb.total - paidNow)}`, at: nowISO(), read: false, link: { page: "payments", id: bookingId } });
+      x.audit.unshift({ id: uid(), tenantId: bb.tenantId, userId: u?.id ?? "?", userName: u?.name ?? "System", action: "payment.recorded", entity: "Payment", entityId: bookingId, detail: `${cur} ${amount} via ${method} on ${bb.code}`, at: nowISO(), ip: "2.50.44.118" });
+      x.notifs.unshift({ id: uid(), tenantId: bb.tenantId, kind: "payment", title: `Payment received — ${cur} ${amount.toLocaleString()}`, body: `${bb.code} · balance ${cur} ${Math.max(0, bb.total - paidNow)}`, at: nowISO(), read: false, link: { page: "payments", id: bookingId } });
     });
     return null;
   }, [mutate, session]);
@@ -215,7 +225,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!b) return;
       const prev = b.status;
       b.status = status;
-      if (status === "cancelled" || status === "no_show") { b.driverId = null; b.vehicleId = null; }
+      if (["cancelled", "no_show", "completed"].includes(status)) {
+        // Release fleet: close the linked trip and free driver/vehicle so they can be re-assigned
+        const t = x.trips.find((y) => y.bookingId === b.id);
+        if (t && t.status !== "completed") { t.status = "completed"; t.endAt = nowISO(); }
+        const dr = x.drivers.find((y) => y.id === b.driverId);
+        if (dr && ["on_trip", "assigned"].includes(dr.status)) dr.status = "available";
+        const v = x.vehicles.find((y) => y.id === b.vehicleId);
+        if (v && ["on_safari", "assigned"].includes(v.status)) v.status = "available";
+        if (status !== "completed") { b.driverId = null; b.vehicleId = null; }
+      }
       if (status === "pickup" && b.driverId && x.vehicles.some((v) => v.id === b.vehicleId)) {
         const v = x.vehicles.find((y) => y.id === b.vehicleId)!; v.status = "on_safari";
       }
@@ -242,7 +261,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const v = x.vehicles.find((y) => y.id === t.vehicleId); if (v) v.status = "available";
         x.notifs.unshift({ id: uid(), tenantId: t.tenantId, kind: "trip", title: `Trip completed — ${b.code}`, body: `${dr?.name ?? "Driver"} finished the safari. Review request can be sent.`, at: nowISO(), read: false, link: { page: "trips" } });
       }
-      if (status === "safari_completed") { const v = x.vehicles.find((y) => y.id === t.vehicleId); if (v) v.status = "assigned"; }
+      // Note: the vehicle stays on_safari until the trip is fully completed (guests dropped off)
     });
   }, [mutate]);
 

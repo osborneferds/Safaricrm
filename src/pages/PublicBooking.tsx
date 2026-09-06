@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, CalendarDays, Check, CreditCard, MapPin, MessageCircle, Users } from "lucide-react";
 import { useStore } from "../lib/store";
+import type { Booking } from "../lib/types";
 import { calcTotal } from "../lib/data";
 import { cx, fmtDate, imgFallback, money, nowISO, todayISO, uid } from "../lib/utils";
 import { IMG } from "../lib/data";
@@ -8,7 +9,7 @@ import { IMG } from "../lib/data";
 const PICKUPS = ["Atlantis The Palm", "Dubai Marina — Address Hotel", "Downtown — Armani Hotel", "JBR — Rixos", "Al Barsha — Rotana Hotel", "Deira — Hyatt Regency", "Mirdif — City Centre area", "Palm Jumeirah — Anantara", "Business Bay — Executive Towers", "Other (tell us in notes)"];
 
 export default function PublicBooking({ onBack }: { onBack: () => void }) {
-  const { db, mutate, toast } = useStore();
+  const { db, mutate, toast, saveBooking } = useStore();
   // Widget-compatible: honour ?tenant= (validated against real tenants) and ?embed=1 for iframe use
   const qp = new URLSearchParams(window.location.search);
   const qTenant = qp.get("tenant");
@@ -47,20 +48,16 @@ export default function PublicBooking({ onBack }: { onBack: () => void }) {
       cid = uid();
       mutate((d) => { d.customers.unshift({ id: cid!, tenantId, name: guest.name.trim(), phone: guest.phone.trim(), whatsapp: guest.phone.trim(), email: guest.email.trim(), country: "—", notes: "Booked via public page.", createdAt: nowISO() }); });
     }
-    const code = `${settings.bookingPrefix}-${new Date().getFullYear()}-${String(db.seq + 1).padStart(6, "0")}`;
-    const id = uid();
-    mutate((d) => {
-      d.bookings.unshift({
-        id, tenantId, code, customerId: cid!, packageId: pkg.id, date, adults, children,
-        pickupLocation: pickup, pickupAddress: guest.notes, pickupTime: "15:30", dropoffLocation: "Same as pickup",
-        specialReq: guest.notes, vehicleId: null, driverId: null, addons: [], discount: 0, taxPct: settings.taxPct,
-        total: calc.total, source: "Public Booking Page", notes: "Online self-service booking", status: "pending",
-        createdAt: nowISO(), createdBy: "public",
-      });
-      d.seq += 1;
-      d.notifs.unshift({ id: uid(), tenantId, kind: "booking", title: `New online booking ${code}`, body: `${guest.name} · ${adults + children} guests · ${pkg.name} on ${fmtDate(date)}`, at: nowISO(), read: false, link: { page: "bookings", id } });
-    });
-    setDone({ code, id, total: calc.total });
+    const booking: Booking = {
+      id: uid(), tenantId, code: "", customerId: cid!, packageId: pkg.id, date, adults, children,
+      pickupLocation: pickup, pickupAddress: guest.notes, pickupTime: "15:30", dropoffLocation: "Same as pickup",
+      specialReq: guest.notes, vehicleId: null, driverId: null, addons: [], discount: 0, taxPct: settings.taxPct,
+      total: calc.total, source: "Public Booking Page", notes: "Online self-service booking", status: "pending",
+      createdAt: nowISO(), createdBy: "public",
+    };
+    const err = saveBooking(booking, true); // code + sequence allocated atomically, notification fired
+    if (err) { toast(err, "error"); return; }
+    setDone({ code: booking.code, id: booking.id, total: calc.total });
     window.scrollTo({ top: 0 });
   };
 

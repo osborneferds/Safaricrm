@@ -132,7 +132,6 @@ export default function Bookings() {
           onSave={(b, paidNow, method) => {
             const err = saveBooking(b, form.isNew);
             if (err) { toast(err, "error"); return; }
-            if (form.isNew) mutate((d) => { d.seq += 1; });
             if (paidNow > 0) {
               const perr = recordPayment(b.id, paidNow, method, "MANUAL", "Recorded with booking", false);
               if (perr) toast(perr, "error");
